@@ -9,14 +9,20 @@ A fast, decimal-safe business trip expense recording and reconciliation web appl
 - npm or bun
 
 ### 2. Environment Variables
-Copy `.env.example` to `.env`:
+Copy `.env.example` to `.env.local`:
 ```bash
-cp .env.example .env
+cp .env.example .env.local
 ```
-Ensure `GEMINI_API_KEY` is populated with a valid Google Gemini API key:
+Set `GEMINI_API_KEY` to a valid Google Gemini API key. Keep this value server-only:
 ```env
-GEMINI_API_KEY="your-gemini-api-key"
+GEMINI_API_KEY="your-server-only-gemini-api-key"
+GEMINI_MODEL="gemini-3.6-flash"
 ```
+
+Set the `VITE_FIREBASE_*` values from the Firebase web app configuration for the
+Google Sheets integration. They are browser configuration, not a place to store a
+Gemini or OAuth secret. The Google Cloud/Firebase API key should be restricted to
+the required APIs and the local/deployed hostnames.
 
 ### 3. Install & Run
 ```bash
@@ -33,6 +39,25 @@ Open [http://localhost:3000](http://localhost:3000) in your browser.
 npm run build
 npm start
 ```
+
+## Vercel Deployment
+
+The Vite app is served from `dist`, while `/api/*` is handled by the Vercel Node
+function in `api/[...path].ts`. Link the project and add the environment variables in
+Vercel with production and preview scopes before deploying:
+
+```bash
+npx vercel link
+npx vercel env add GEMINI_API_KEY production
+npx vercel env add VITE_FIREBASE_API_KEY production
+npx vercel deploy --prod
+```
+
+Add the same Firebase web variables to preview when preview deployments need the
+Google Sheets flow. In Firebase Authentication, enable Google sign-in and add the
+Vercel production/preview domains to Authorized domains. Enable the Google Sheets
+API for the Firebase project and complete the OAuth consent-screen setup before
+testing spreadsheet export.
 
 ---
 

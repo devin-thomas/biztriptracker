@@ -1,5 +1,6 @@
 import { initializeApp, getApps, getApp } from 'firebase/app';
 import {
+  Auth,
   getAuth,
   signInWithPopup,
   GoogleAuthProvider,
@@ -7,10 +8,23 @@ import {
   User,
   signOut,
 } from 'firebase/auth';
-import firebaseConfig from '../../firebase-applet-config.json';
+import { firebaseConfig, isFirebaseConfigured } from './firebaseConfig.js';
 
-const app = !getApps().length ? initializeApp(firebaseConfig) : getApp();
-export const auth = getAuth(app);
+const GOOGLE_CONFIG_ERROR = 'Google Sheets integration is not configured for this deployment.';
+let authInstance: Auth | null = null;
+
+const getFirebaseAuth = (): Auth => {
+  if (!isFirebaseConfigured()) {
+    throw new Error(GOOGLE_CONFIG_ERROR);
+  }
+
+  if (!authInstance) {
+    const app = !getApps().length ? initializeApp(firebaseConfig) : getApp();
+    authInstance = getAuth(app);
+  }
+
+  return authInstance;
+};
 
 const provider = new GoogleAuthProvider();
 // Add Sheets scope requested by user
@@ -23,7 +37,12 @@ export const initAuth = (
   onAuthSuccess?: (user: User, token: string) => void,
   onAuthFailure?: () => void
 ) => {
-  return onAuthStateChanged(auth, async (user: User | null) => {
+  if (!isFirebaseConfigured()) {
+    onAuthFailure?.();
+    return () => undefined;
+  }
+
+  return onAuthStateChanged(getFirebaseAuth(), async (user: User | null) => {
     if (user) {
       if (cachedAccessToken) {
         if (onAuthSuccess) onAuthSuccess(user, cachedAccessToken);
@@ -41,7 +60,7 @@ export const initAuth = (
 export const googleSignIn = async (): Promise<{ user: User; accessToken: string } | null> => {
   try {
     isSigningIn = true;
-    const result = await signInWithPopup(auth, provider);
+    const result = await signInWithPopup(getFirebaseAuth(), provider);
     const credential = GoogleAuthProvider.credentialFromResult(result);
     if (!credential?.accessToken) {
       throw new Error('Failed to obtain Google OAuth access token.');
@@ -49,8 +68,10 @@ export const googleSignIn = async (): Promise<{ user: User; accessToken: string 
 
     cachedAccessToken = credential.accessToken;
     return { user: result.user, accessToken: cachedAccessToken };
-  } catch (error: any) {
-    console.error('Sign in error:', error);
+  } catch (error: unknown) {
+    if (!(error instanceof Error) || error.message !== GOOGLE_CONFIG_ERROR) {
+      console.error('Sign in error:', error);
+    }
     throw error;
   } finally {
     isSigningIn = false;
@@ -62,6 +83,8 @@ export const getAccessToken = async (): Promise<string | null> => {
 };
 
 export const logout = async () => {
-  await signOut(auth);
+  if (isFirebaseConfigured()) {
+    await signOut(getFirebaseAuth());
+  }
   cachedAccessToken = null;
 };

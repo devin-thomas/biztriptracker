@@ -1,0 +1,6 @@
+{
+  "name": "Trip Expense Tracker",
+  "description": "Conversational business trip expense tracking and reconciliation with smart calculation and export.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

@@ -1,9 +1,17 @@
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
+import { AnimatePresence, motion } from 'motion/react';
+import { User } from 'firebase/auth';
+import {
+  ArrowLeft, ArrowRight, BriefcaseBusiness, CalendarDays, ChevronRight,
+  ClipboardList, FileDown, FilePlus2, MapPin, MessageSquareText,
+  MoreHorizontal, Plus, Settings2, SlidersHorizontal,
+} from 'lucide-react';
 import { TripRecord, ExpenseRecord, DEFAULT_CATEGORIES } from './types/expense.js';
 import { expenseStorage } from './storage/IndexedDbExpenseStorage.js';
 import { computeTripTotals } from './storage/IExpenseStorage.js';
 import { geminiExpenseParser } from './ai/GeminiExpenseParser.js';
 import { ParseExpenseResponse, ExpenseDraftItem } from './ai/expensePrompt.js';
+import { formatCurrency } from './utils/money.js';
 import { TripTotalsBar } from './components/TripTotalsBar.js';
 import { ConversationalBox } from './components/ConversationalBox.js';
 import { ExpenseTable } from './components/ExpenseTable.js';
@@ -11,92 +19,53 @@ import { ExpenseModal } from './components/ExpenseModal.js';
 import { TripModal } from './components/TripModal.js';
 import { ExportModal } from './components/ExportModal.js';
 import { ReceiptViewerModal } from './components/ReceiptViewerModal.js';
-import { initAuth, googleSignIn, logout } from './services/googleAuth.js';
-import { User } from 'firebase/auth';
-import {
-  Briefcase,
-  Plus,
-  Share2,
-  Calendar,
-  MapPin,
-  Settings,
-  ChevronDown,
-  Moon,
-  Sun,
-  FileSpreadsheet,
-  Download,
-  AlertCircle,
-  CheckCircle2,
-  Sparkles,
-} from 'lucide-react';
+import { initAuth } from './services/googleAuth.js';
+
+type ViewKey = 'tripChooser' | 'tripHome' | 'addExpenseChoice' | 'chatExpense' | 'manualExpense' | 'reviewProject' | 'projectControls';
 
 export default function App() {
-  // Theme state
-  const [isDarkMode, setIsDarkMode] = useState<boolean>(() => {
-    return window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
-  });
-
-  useEffect(() => {
-    if (isDarkMode) {
-      document.documentElement.classList.add('dark');
-    } else {
-      document.documentElement.classList.remove('dark');
-    }
-  }, [isDarkMode]);
-
-  // Trips & Expenses State
   const [trips, setTrips] = useState<TripRecord[]>([]);
   const [activeTrip, setActiveTrip] = useState<TripRecord | null>(null);
   const [expenses, setExpenses] = useState<ExpenseRecord[]>([]);
   const [customCategories, setCustomCategories] = useState<string[]>(DEFAULT_CATEGORIES);
   const [isLoading, setIsLoading] = useState(true);
   const [isProcessingAi, setIsProcessingAi] = useState(false);
-
-  // Modals state
+  const [view, setView] = useState<ViewKey>('tripChooser');
+  const [direction, setDirection] = useState(1);
   const [isExpenseModalOpen, setIsExpenseModalOpen] = useState(false);
   const [editingExpense, setEditingExpense] = useState<ExpenseRecord | null>(null);
+  const [manualReturnView, setManualReturnView] = useState<ViewKey>('tripHome');
   const [isTripModalOpen, setIsTripModalOpen] = useState(false);
   const [editingTrip, setEditingTrip] = useState<TripRecord | null>(null);
   const [isExportModalOpen, setIsExportModalOpen] = useState(false);
   const [viewingReceiptExpense, setViewingReceiptExpense] = useState<ExpenseRecord | null>(null);
-
-  // Auth state for Google Sheets
   const [currentUser, setCurrentUser] = useState<User | null>(null);
 
   useEffect(() => {
-    initAuth(
-      (user) => setCurrentUser(user),
-      () => setCurrentUser(null)
-    );
+    document.documentElement.classList.add('dark');
+    initAuth(setCurrentUser, () => setCurrentUser(null));
   }, []);
 
-  // Initialize and load data from IndexedDB
+  const navigate = (nextView: ViewKey, nextDirection = 1) => {
+    setDirection(nextDirection);
+    setView(nextView);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
   const loadInitialData = async () => {
     setIsLoading(true);
     try {
       let allTrips = await expenseStorage.getAllTrips();
-
-      // If database is completely empty on fresh checkout, seed a demo trip
       if (allTrips.length === 0) {
         const seeded = await expenseStorage.seedDemoData();
         allTrips = [seeded.trip];
       }
-
       setTrips(allTrips);
-      const selected = allTrips[0] || null;
-      setActiveTrip(selected);
-
-      if (selected) {
-        const tripExpenses = await expenseStorage.getExpensesForTrip(selected.id);
-        setExpenses(tripExpenses);
-      } else {
-        setExpenses([]);
-      }
-
-      // Categories
+      setActiveTrip(null);
+      setExpenses([]);
       const storedCategories = await expenseStorage.getCustomCategories();
-      const mergedCategories = Array.from(new Set([...DEFAULT_CATEGORIES, ...storedCategories]));
-      setCustomCategories(mergedCategories);
+      setCustomCategories(Array.from(new Set([...DEFAULT_CATEGORIES, ...storedCategories])));
+      navigate('tripChooser', -1);
     } catch (err) {
       console.error('Failed to load initial expense database:', err);
     } finally {
@@ -104,55 +73,34 @@ export default function App() {
     }
   };
 
-  useEffect(() => {
-    loadInitialData();
-  }, []);
+  useEffect(() => { void loadInitialData(); }, []);
 
-  // Switch trip handler
   const handleSelectTrip = async (tripId: string) => {
-    const found = trips.find((t) => t.id === tripId) || null;
+    const found = trips.find((trip) => trip.id === tripId) || null;
     setActiveTrip(found);
     if (found) {
-      const tripExpenses = await expenseStorage.getExpensesForTrip(found.id);
-      setExpenses(tripExpenses);
-    } else {
-      setExpenses([]);
+      setExpenses(await expenseStorage.getExpensesForTrip(found.id));
+      navigate('tripHome');
     }
   };
 
-  // Refresh active trip expenses
-  const refreshExpenses = async (tripId: string) => {
-    const list = await expenseStorage.getExpensesForTrip(tripId);
-    setExpenses(list);
-  };
+  const refreshExpenses = async (tripId: string) => setExpenses(await expenseStorage.getExpensesForTrip(tripId));
 
-  // Conversational parsing handler
   const handleParseAiMessage = async (text: string): Promise<ParseExpenseResponse> => {
-    if (!activeTrip) {
-      throw new Error('Please create or select an active trip first.');
-    }
-
+    if (!activeTrip) throw new Error('Please create or select an active trip first.');
     setIsProcessingAi(true);
     try {
-      const response = await geminiExpenseParser.parseExpenseMessage({
-        message: text,
-        trip: activeTrip,
-        existingExpenses: expenses,
-        customCategories,
-      });
-      return response;
+      return await geminiExpenseParser.parseExpenseMessage({ message: text, trip: activeTrip, existingExpenses: expenses, customCategories });
     } finally {
       setIsProcessingAi(false);
     }
   };
 
-  // Commit parsed expenses from conversation
   const handleCommitParsedExpenses = async (drafts: ExpenseDraftItem[]) => {
     if (!activeTrip) return;
     const now = new Date().toISOString();
-
-    const newRecords: ExpenseRecord[] = drafts.map((draft, idx) => ({
-      id: `exp-${Date.now()}-${idx}-${Math.random().toString(36).substring(2, 6)}`,
+    const records: ExpenseRecord[] = drafts.map((draft, index) => ({
+      id: `exp-${Date.now()}-${index}-${Math.random().toString(36).substring(2, 6)}`,
       tripId: activeTrip.id,
       date: draft.date || new Date().toISOString().split('T')[0],
       merchant: draft.merchant || 'Expense Entry',
@@ -170,317 +118,93 @@ export default function App() {
       createdAt: now,
       updatedAt: now,
     }));
-
-    await expenseStorage.saveExpenses(newRecords);
+    await expenseStorage.saveExpenses(records);
     await refreshExpenses(activeTrip.id);
+    navigate('tripHome', -1);
   };
 
-  // Commit modification from conversation
   const handleCommitModifiedExpense = async (expenseId: string, updates: Partial<ExpenseDraftItem>) => {
     const existing = await expenseStorage.getExpenseById(expenseId);
-    if (!existing) {
-      throw new Error(`Expense with ID ${expenseId} not found.`);
-    }
-
-    const updated: ExpenseRecord = {
-      ...existing,
-      ...updates,
-      updatedAt: new Date().toISOString(),
-    };
-
-    await expenseStorage.saveExpense(updated);
-    if (activeTrip) {
-      await refreshExpenses(activeTrip.id);
-    }
+    if (!existing) throw new Error(`Expense with ID ${expenseId} not found.`);
+    await expenseStorage.saveExpense({ ...existing, ...updates, updatedAt: new Date().toISOString() });
+    if (activeTrip) await refreshExpenses(activeTrip.id);
   };
 
-  // Delete expense handler
   const handleDeleteExpense = async (expenseId: string) => {
     await expenseStorage.deleteExpense(expenseId);
-    if (activeTrip) {
-      await refreshExpenses(activeTrip.id);
-    }
+    if (activeTrip) await refreshExpenses(activeTrip.id);
   };
 
-  // Duplicate expense handler
-  const handleDuplicateExpense = async (exp: ExpenseRecord) => {
+  const handleDuplicateExpense = async (expense: ExpenseRecord) => {
     if (!activeTrip) return;
     const now = new Date().toISOString();
-    const duplicated: ExpenseRecord = {
-      ...exp,
-      id: `exp-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
-      description: `${exp.description} (Copy)`,
-      source: 'manual',
-      createdAt: now,
-      updatedAt: now,
-    };
-    await expenseStorage.saveExpense(duplicated);
+    await expenseStorage.saveExpense({ ...expense, id: `exp-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`, description: `${expense.description} (Copy)`, source: 'manual', createdAt: now, updatedAt: now });
     await refreshExpenses(activeTrip.id);
   };
 
-  // Save manual / edited expense
   const handleSaveExpenseRecord = async (record: ExpenseRecord) => {
     await expenseStorage.saveExpense(record);
-    if (activeTrip) {
-      await refreshExpenses(activeTrip.id);
-    }
+    if (activeTrip) await refreshExpenses(activeTrip.id);
+    setIsExpenseModalOpen(false);
+    setEditingExpense(null);
+    navigate(manualReturnView, -1);
   };
 
-  // Save / create trip
   const handleSaveTrip = async (trip: TripRecord) => {
     await expenseStorage.saveTrip(trip);
-    const all = await expenseStorage.getAllTrips();
-    setTrips(all);
+    setTrips(await expenseStorage.getAllTrips());
     setActiveTrip(trip);
     await refreshExpenses(trip.id);
+    setIsTripModalOpen(false);
+    setEditingTrip(null);
+    navigate('tripHome');
   };
 
-  // Clear demo data
   const handleClearDemoData = async () => {
     await expenseStorage.clearDemoData();
     setTrips([]);
     setActiveTrip(null);
     setExpenses([]);
+    setIsExportModalOpen(false);
+    navigate('tripChooser', -1);
   };
 
-  // Computed financial totals
-  const tripTotals = computeTripTotals(expenses);
+  const openManualEntry = (returnView: ViewKey = 'tripHome', expense: ExpenseRecord | null = null) => {
+    setManualReturnView(returnView);
+    setEditingExpense(expense);
+    setIsExpenseModalOpen(true);
+    navigate('manualExpense');
+  };
 
-  return (
-    <div className="min-h-screen bg-zinc-100 dark:bg-zinc-950 text-zinc-900 dark:text-zinc-100 flex flex-col font-sans selection:bg-zinc-800 selection:text-white dark:selection:bg-zinc-200 dark:selection:text-zinc-900 antialiased">
-      {/* Dense App Navigation Bar */}
-      <header className="sticky top-0 z-40 bg-white/90 dark:bg-zinc-900/90 backdrop-blur-md border-b border-zinc-200 dark:border-zinc-800 px-4 py-2.5">
-        <div className="max-w-7xl mx-auto flex items-center justify-between gap-3">
-          <div className="flex items-center gap-3">
-            <div className="flex items-center gap-2">
-              <div className="w-7 h-7 rounded bg-zinc-900 dark:bg-zinc-100 flex items-center justify-center text-white dark:text-zinc-900 font-bold text-xs shadow-xs">
-                TT
-              </div>
-              <h1 className="text-sm font-semibold tracking-tight text-zinc-900 dark:text-zinc-100 hidden sm:inline">
-                Trip Expense Tracker
-              </h1>
-            </div>
+  const renderView = () => {
+    if (isLoading) return <div className="loading-state">Loading your trips<span className="loading-dots">...</span></div>;
+    if (view === 'tripChooser') return <section className="flow-screen chooser-screen" aria-labelledby="chooser-title">
+      <div className="step-heading"><span>01</span><div><h1 id="chooser-title">Choose a trip</h1><p>Start with the project you are working on today.</p></div></div>
+      <div className="trip-list" role="list" aria-label="Available trips">
+        {trips.map((trip) => <button key={trip.id} type="button" className="selection-tile trip-tile" onClick={() => void handleSelectTrip(trip.id)}><span className="tile-icon"><BriefcaseBusiness size={20} /></span><span className="tile-copy"><strong>{trip.name}</strong><small><MapPin size={13} />{trip.destination}</small><small><CalendarDays size={13} />{trip.startDate} to {trip.endDate}</small></span><ChevronRight className="tile-arrow" size={18} /></button>)}
+      </div>
+      <button type="button" className="secondary-action create-trip-action" onClick={() => { setEditingTrip(null); setIsTripModalOpen(true); }}><Plus size={16} /> Create a trip</button>
+    </section>;
+    if (!activeTrip) return null;
+    const currency = activeTrip.settings.defaultCurrency || 'USD';
+    const totals = computeTripTotals(expenses);
+    if (view === 'tripHome') return <section className="flow-screen home-screen" aria-labelledby="home-title">
+      <div className="screen-toolbar"><button type="button" className="icon-action" aria-label="Choose another trip" onClick={() => { setActiveTrip(null); setExpenses([]); navigate('tripChooser', -1); }}><ArrowLeft size={17} /></button><span className="toolbar-context">{activeTrip.destination}</span><button type="button" className="icon-action" aria-label="Open project controls" onClick={() => navigate('projectControls')}><MoreHorizontal size={19} /></button></div>
+      <div className="home-intro"><span className="section-kicker">CURRENT TRIP</span><h1 id="home-title">{activeTrip.name}</h1><p><MapPin size={14} /> {activeTrip.destination} <span className="dot-separator">•</span> <CalendarDays size={14} /> {activeTrip.startDate} to {activeTrip.endDate}</p></div>
+      <div className="home-summary"><div><span>Expenses</span><strong>{totals.expenseCount}</strong></div><div><span>Total</span><strong className="success-text">{formatCurrency(totals.totalExpenses, currency)}</strong></div></div>
+      <div className="primary-actions-stack"><button type="button" className="primary-action primary-action-large" onClick={() => navigate('addExpenseChoice')}><Plus size={21} /> Add expense</button><button type="button" className="secondary-action secondary-action-large" onClick={() => navigate('reviewProject')}><ClipboardList size={18} /> Review project <ArrowRight size={16} /></button></div>
+      {activeTrip.notes && <div className="policy-note"><SlidersHorizontal size={15} /><span><strong>Trip policy</strong>{activeTrip.notes}</span></div>}
+    </section>;
+    if (view === 'addExpenseChoice') return <section className="flow-screen choice-screen" aria-labelledby="add-title"><FlowBackButton label="Back to trip" onClick={() => navigate('tripHome', -1)} /><div className="step-heading compact-heading"><span>02</span><div><h1 id="add-title">Add an expense</h1><p>How do you want to add it?</p></div></div><div className="choice-list"><button type="button" className="selection-tile choice-tile selected-tile" onClick={() => navigate('chatExpense')}><span className="tile-icon"><MessageSquareText size={23} /></span><span className="tile-copy"><strong>Chat it in</strong><small>Describe what you spent in your own words.</small></span><ChevronRight className="tile-arrow" size={19} /></button><button type="button" className="selection-tile choice-tile" onClick={() => openManualEntry()}><span className="tile-icon"><FilePlus2 size={23} /></span><span className="tile-copy"><strong>Enter manually</strong><small>Fill in the details yourself.</small></span><ChevronRight className="tile-arrow" size={19} /></button></div></section>;
+    if (view === 'chatExpense') return <section className="flow-screen chat-screen" aria-labelledby="chat-title"><FlowBackButton label="Back to add expense" onClick={() => navigate('addExpenseChoice', -1)} /><div className="step-heading compact-heading"><span>03</span><div><h1 id="chat-title">Chat it in</h1><p>Describe one or more expenses in your own words.</p></div></div><ConversationalBox onParseMessage={handleParseAiMessage} onCommitParsedExpenses={handleCommitParsedExpenses} onCommitModifiedExpense={handleCommitModifiedExpense} onDeleteExpenseRequest={handleDeleteExpense} isProcessing={isProcessingAi} currency={currency} /></section>;
+    if (view === 'reviewProject') return <section className="review-screen" aria-labelledby="review-title"><div className="screen-toolbar"><button type="button" className="icon-action" aria-label="Back to trip home" onClick={() => navigate('tripHome', -1)}><ArrowLeft size={17} /></button><span className="toolbar-context">{activeTrip.name}</span><button type="button" className="icon-action" aria-label="Open project controls" onClick={() => navigate('projectControls')}><MoreHorizontal size={19} /></button></div><div className="step-heading compact-heading"><span>04</span><div><h1 id="review-title">Review project</h1><p>Check the details and keep your records ready.</p></div></div><TripTotalsBar totals={totals} currency={currency} /><ExpenseTable expenses={expenses} allCategories={customCategories} onEditExpense={(expense) => openManualEntry('reviewProject', expense)} onDeleteExpense={handleDeleteExpense} onDuplicateExpense={handleDuplicateExpense} onAddNewManual={() => navigate('addExpenseChoice')} onViewReceipt={setViewingReceiptExpense} currency={currency} /></section>;
+    if (view === 'projectControls') return <section className="flow-screen controls-screen" aria-labelledby="controls-title"><FlowBackButton label="Back to trip" onClick={() => navigate('tripHome', -1)} /><div className="step-heading compact-heading"><span>••</span><div><h1 id="controls-title">Project controls</h1><p>Useful tools for this trip, kept out of the way until you need them.</p></div></div><div className="control-list"><button type="button" className="control-row" onClick={() => { setEditingTrip(activeTrip); setIsTripModalOpen(true); }}><Settings2 size={18} /><span><strong>Trip settings</strong><small>Edit dates, policy, and defaults.</small></span><ChevronRight size={17} /></button><button type="button" className="control-row" onClick={() => setIsExportModalOpen(true)}><FileDown size={18} /><span><strong>Export or reconcile</strong><small>Download, import, or send to Sheets.</small></span><ChevronRight size={17} /></button><button type="button" className="control-row" onClick={() => navigate('reviewProject')}><ClipboardList size={18} /><span><strong>Review expenses</strong><small>Open the full ledger and totals.</small></span><ChevronRight size={17} /></button></div></section>;
+    return null;
+  };
 
-            <div className="h-4 w-px bg-zinc-200 dark:bg-zinc-800 hidden sm:block" />
+  return <div className="app-shell"><header className="brand-header"><div className="brand-lockup"><span className="brand-icon"><BriefcaseBusiness size={18} /></span><span>Trip Expense Tracker</span></div><span className="save-state">LOCAL WORKSPACE</span></header><main className="app-main"><div className="workflow-frame"><AnimatePresence mode="wait" custom={direction}><motion.div key={view} custom={direction} initial={{ opacity: 0, x: direction * 24 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: direction * -18 }} transition={{ duration: 0.24, ease: [0.22, 0.8, 0.3, 1] }}>{renderView()}</motion.div></AnimatePresence></div></main>{activeTrip && <ExpenseModal isOpen={isExpenseModalOpen} onClose={() => { setIsExpenseModalOpen(false); setEditingExpense(null); navigate(manualReturnView, -1); }} onSave={handleSaveExpenseRecord} tripId={activeTrip.id} categories={customCategories} initialExpense={editingExpense} defaultCurrency={activeTrip.settings.defaultCurrency || 'USD'} />}<TripModal isOpen={isTripModalOpen} onClose={() => { setIsTripModalOpen(false); setEditingTrip(null); }} onSave={handleSaveTrip} initialTrip={editingTrip} />{activeTrip && <ExportModal isOpen={isExportModalOpen} onClose={() => setIsExportModalOpen(false)} trip={activeTrip} expenses={expenses} allTrips={trips} onImportSuccess={loadInitialData} onClearDemoData={handleClearDemoData} currentUser={currentUser} onUserChanged={setCurrentUser} />}<ReceiptViewerModal expense={viewingReceiptExpense} onClose={() => setViewingReceiptExpense(null)} /></div>;
+}
 
-            {/* Trip Selector Dropdown */}
-            <div className="flex items-center gap-1.5">
-              <select
-                id="trip-selector-dropdown"
-                value={activeTrip?.id || ''}
-                onChange={(e) => handleSelectTrip(e.target.value)}
-                className="text-xs font-medium py-1 px-2.5 rounded border border-zinc-300 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800 text-zinc-800 dark:text-zinc-200 focus:outline-hidden max-w-[200px] sm:max-w-xs truncate cursor-pointer"
-              >
-                {trips.map((t) => (
-                  <option key={t.id} value={t.id}>
-                    {t.name} ({t.destination})
-                  </option>
-                ))}
-              </select>
-
-              <button
-                type="button"
-                id="btn-new-trip"
-                onClick={() => {
-                  setEditingTrip(null);
-                  setIsTripModalOpen(true);
-                }}
-                className="p-1 rounded text-zinc-600 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-100 hover:bg-zinc-100 dark:hover:bg-zinc-800 cursor-pointer"
-                title="Create New Trip"
-              >
-                <Plus className="w-4 h-4" />
-              </button>
-            </div>
-          </div>
-
-          {/* Action buttons */}
-          <div className="flex items-center gap-2">
-            {activeTrip && (
-              <>
-                <button
-                  type="button"
-                  id="btn-trip-settings"
-                  onClick={() => {
-                    setEditingTrip(activeTrip);
-                    setIsTripModalOpen(true);
-                  }}
-                  className="p-1.5 text-xs text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100 rounded hover:bg-zinc-100 dark:hover:bg-zinc-800 cursor-pointer"
-                  title="Trip Settings"
-                >
-                  <Settings className="w-4 h-4" />
-                </button>
-
-                <button
-                  type="button"
-                  id="btn-open-export-modal"
-                  onClick={() => setIsExportModalOpen(true)}
-                  className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-medium rounded border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-800 hover:bg-zinc-50 dark:hover:bg-zinc-700 text-zinc-800 dark:text-zinc-200 shadow-xs cursor-pointer"
-                >
-                  <Share2 className="w-3.5 h-3.5" />
-                  <span>Export & Reconcile</span>
-                </button>
-              </>
-            )}
-
-            {/* Dark mode toggle */}
-            <button
-              type="button"
-              onClick={() => setIsDarkMode(!isDarkMode)}
-              className="p-1.5 text-zinc-500 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-100 rounded hover:bg-zinc-100 dark:hover:bg-zinc-800 cursor-pointer"
-              title="Toggle Dark Mode"
-            >
-              {isDarkMode ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
-            </button>
-          </div>
-        </div>
-      </header>
-
-      {/* Main Container */}
-      <main className="flex-1 max-w-7xl w-full mx-auto p-4 sm:p-6">
-        {isLoading ? (
-          <div className="py-20 text-center text-xs text-zinc-400">Loading trip expenses...</div>
-        ) : !activeTrip ? (
-          /* Empty Trip State */
-          <div className="py-16 text-center max-w-md mx-auto bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-lg p-8 shadow-xs">
-            <Briefcase className="w-10 h-10 mx-auto text-zinc-400 mb-3" />
-            <h2 className="text-sm font-semibold text-zinc-900 dark:text-zinc-100 mb-1">
-              No Trips Recorded
-            </h2>
-            <p className="text-xs text-zinc-500 mb-4">
-              Create a trip to record, categorize, and reconcile your business travel expenses.
-            </p>
-            <button
-              type="button"
-              onClick={() => {
-                setEditingTrip(null);
-                setIsTripModalOpen(true);
-              }}
-              className="px-4 py-2 text-xs font-medium rounded bg-zinc-900 text-white hover:bg-zinc-800 dark:bg-zinc-100 dark:text-zinc-900 shadow-xs cursor-pointer"
-            >
-              Create Business Trip
-            </button>
-          </div>
-        ) : (
-          <div>
-            {/* Trip Metadata Header Card */}
-            <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-lg p-3.5 mb-4 shadow-xs flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-              <div>
-                <div className="flex items-center gap-2">
-                  <h2 className="text-base font-bold text-zinc-900 dark:text-zinc-100 tracking-tight">
-                    {activeTrip.name}
-                  </h2>
-                  <span className="px-2 py-0.5 rounded text-[11px] font-medium bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400">
-                    {activeTrip.settings.defaultCurrency}
-                  </span>
-                </div>
-
-                <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-zinc-500 dark:text-zinc-400 mt-1">
-                  <span className="flex items-center gap-1">
-                    <MapPin className="w-3 h-3 text-zinc-400" />
-                    {activeTrip.destination}
-                  </span>
-                  <span className="flex items-center gap-1">
-                    <Calendar className="w-3 h-3 text-zinc-400" />
-                    {activeTrip.startDate} → {activeTrip.endDate}
-                  </span>
-                  {activeTrip.clientOrEvent && (
-                    <span className="flex items-center gap-1">
-                      <Briefcase className="w-3 h-3 text-zinc-400" />
-                      {activeTrip.clientOrEvent}
-                    </span>
-                  )}
-                </div>
-              </div>
-
-              {activeTrip.notes && (
-                <div className="text-[11px] text-zinc-500 dark:text-zinc-400 bg-zinc-50 dark:bg-zinc-800/40 px-3 py-1.5 rounded border border-zinc-200/80 dark:border-zinc-800 max-w-sm">
-                  <span className="font-medium text-zinc-700 dark:text-zinc-300">Policy: </span>
-                  {activeTrip.notes}
-                </div>
-              )}
-            </div>
-
-            {/* Trip Totals Bar */}
-            <TripTotalsBar totals={tripTotals} currency={activeTrip.settings.defaultCurrency} />
-
-            {/* Conversational Expense-Entry Box */}
-            <ConversationalBox
-              onParseMessage={handleParseAiMessage}
-              onCommitParsedExpenses={handleCommitParsedExpenses}
-              onCommitModifiedExpense={handleCommitModifiedExpense}
-              onDeleteExpenseRequest={handleDeleteExpense}
-              isProcessing={isProcessingAi}
-              currency={activeTrip.settings.defaultCurrency}
-            />
-
-            {/* Expense Table with Sorting, Filtering, and Actions */}
-            <ExpenseTable
-              expenses={expenses}
-              allCategories={customCategories}
-              onEditExpense={(exp) => {
-                setEditingExpense(exp);
-                setIsExpenseModalOpen(true);
-              }}
-              onDeleteExpense={handleDeleteExpense}
-              onDuplicateExpense={handleDuplicateExpense}
-              onAddNewManual={() => {
-                setEditingExpense(null);
-                setIsExpenseModalOpen(true);
-              }}
-              onViewReceipt={(exp) => setViewingReceiptExpense(exp)}
-              currency={activeTrip.settings.defaultCurrency}
-            />
-          </div>
-        )}
-      </main>
-
-      {/* Manual / Edit Expense Dialog */}
-      {activeTrip && (
-        <ExpenseModal
-          isOpen={isExpenseModalOpen}
-          onClose={() => {
-            setIsExpenseModalOpen(false);
-            setEditingExpense(null);
-          }}
-          onSave={handleSaveExpenseRecord}
-          tripId={activeTrip.id}
-          categories={customCategories}
-          initialExpense={editingExpense}
-          defaultCurrency={activeTrip.settings.defaultCurrency}
-        />
-      )}
-
-      {/* Create / Edit Trip Dialog */}
-      <TripModal
-        isOpen={isTripModalOpen}
-        onClose={() => {
-          setIsTripModalOpen(false);
-          setEditingTrip(null);
-        }}
-        onSave={handleSaveTrip}
-        initialTrip={editingTrip}
-      />
-
-      {/* Export & Reconciliation Dialog */}
-      {activeTrip && (
-        <ExportModal
-          isOpen={isExportModalOpen}
-          onClose={() => setIsExportModalOpen(false)}
-          trip={activeTrip}
-          expenses={expenses}
-          allTrips={trips}
-          onImportSuccess={loadInitialData}
-          onClearDemoData={handleClearDemoData}
-          currentUser={currentUser}
-          onUserChanged={setCurrentUser}
-        />
-      )}
-
-      {/* Attached Receipt Viewer */}
-      <ReceiptViewerModal
-        expense={viewingReceiptExpense}
-        onClose={() => setViewingReceiptExpense(null)}
-      />
-    </div>
-  );
+function FlowBackButton({ label, onClick }: { label: string; onClick: () => void }) {
+  return <button type="button" className="back-link" onClick={onClick}><ArrowLeft size={15} /> {label}</button>;
 }

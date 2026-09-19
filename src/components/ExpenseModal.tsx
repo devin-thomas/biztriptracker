@@ -149,7 +149,7 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
         {/* Header */}
         <div className="px-5 py-3.5 border-b border-zinc-200 dark:border-zinc-800 flex items-center justify-between">
           <h2 className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">
-            {initialExpense ? 'Edit Expense Record' : 'Add Expense Record'}
+            {initialExpense ? 'Edit Expense Record' : 'Enter Expense'}
           </h2>
           <button
             type="button"

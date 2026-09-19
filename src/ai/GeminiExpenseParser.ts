@@ -43,7 +43,7 @@ export class GeminiExpenseParser implements IExpenseParser {
     // Pattern: miles + mpg + gas price
     const milesMatch = text.match(/(\d+(?:\.\d+)?)\s*(?:miles|mi\b)/);
     const mpgMatch = text.match(/(\d+(?:\.\d+)?)\s*mpg/);
-    const gasMatch = text.match(/(?:gas|fuel|price)?\s*(?:was|is|at)?\s*\$?(\d+(?:\.\d+)?)\s*(?:a\s*gallon|per\s*gallon|\/gal)/);
+    const gasMatch = text.match(/(?:gas|fuel|price)\s*(?:was|is|at)?\s*\$?(\d+(?:\.\d+)?)(?:\s*(?:a\s*gallon|per\s*gallon|\/gal))?/);
 
     if (milesMatch && mpgMatch && gasMatch) {
       const miles = parseFloat(milesMatch[1]);

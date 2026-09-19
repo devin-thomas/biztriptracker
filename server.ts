@@ -10,6 +10,8 @@ dotenv.config();
 const app = express();
 const PORT = 3000;
 
+export { app };
+
 app.use(express.json({ limit: '15mb' }));
 
 // Lazy initializer for Gemini client to prevent crash on startup if missing key
@@ -169,9 +171,9 @@ app.post('/api/expenses/parse', async (req, res) => {
       .replace('{AVAILABLE_CATEGORIES}', availableCategories)
       .replace('{EXISTING_EXPENSES_SUMMARY}', recentExpensesSummary);
 
-    // Call Gemini with gemini-2.5-flash for speed and precision structured output
+    // Keep the model configurable so provider model changes do not require code edits.
     const response = await ai.models.generateContent({
-      model: 'gemini-2.5-flash',
+      model: process.env.GEMINI_MODEL || 'gemini-3.6-flash',
       contents: [
         {
           role: 'user',
@@ -267,4 +269,9 @@ async function startServer() {
   });
 }
 
-startServer();
+if (process.env.VERCEL !== '1') {
+  startServer().catch((error) => {
+    console.error('Failed to start TripLedger server:', error);
+    process.exitCode = 1;
+  });
+}

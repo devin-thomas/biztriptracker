@@ -33,8 +33,8 @@ export interface IExpenseStorage {
     expenses: ExpenseRecord[];
     customCategories?: string[];
   }): Promise<void>;
-  clearDemoData(): Promise<void>;
-  seedDemoData(): Promise<{ trip: TripRecord; expenses: ExpenseRecord[] }>;
+  removeLegacyDemoData(): Promise<void>;
+  clearAllData(): Promise<void>;
 }
 
 export function computeTripTotals(expenses: ExpenseRecord[]): TripTotals {

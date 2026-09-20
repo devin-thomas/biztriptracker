@@ -11,6 +11,17 @@ const STORES = {
   METADATA: 'metadata',
 };
 
+// These IDs were used only by the old demo fixture. Keep the migration narrow
+// so existing real trips and expenses are never removed.
+const LEGACY_DEMO_TRIP_ID = 'trip-chicago-q3';
+const LEGACY_DEMO_EXPENSE_IDS = [
+  'exp-demo-1',
+  'exp-demo-2',
+  'exp-demo-3',
+  'exp-demo-4',
+  'exp-demo-5',
+];
+
 export class IndexedDbExpenseStorage implements IExpenseStorage {
   private dbPromise: Promise<IDBDatabase> | null = null;
 
@@ -211,7 +222,7 @@ export class IndexedDbExpenseStorage implements IExpenseStorage {
     });
   }
 
-  // --- DATA PORTABILITY & SEEDING ---
+  // --- DATA PORTABILITY ---
 
   async exportAllData(): Promise<{
     version: number;
@@ -278,7 +289,7 @@ export class IndexedDbExpenseStorage implements IExpenseStorage {
     });
   }
 
-  async clearDemoData(): Promise<void> {
+  async clearAllData(): Promise<void> {
     const db = await this.getDb();
     return new Promise((resolve, reject) => {
       const tx = db.transaction(
@@ -293,137 +304,22 @@ export class IndexedDbExpenseStorage implements IExpenseStorage {
     });
   }
 
-  async seedDemoData(): Promise<{ trip: TripRecord; expenses: ExpenseRecord[] }> {
-    const now = new Date();
-    const today = now.toISOString().split('T')[0];
-    const pastDate = new Date(now.getTime() - 2 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
-    const futureDate = new Date(now.getTime() + 2 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+  async removeLegacyDemoData(): Promise<void> {
+    const legacyTrip = await this.getTripById(LEGACY_DEMO_TRIP_ID);
+    if (legacyTrip) {
+      await this.deleteTrip(LEGACY_DEMO_TRIP_ID);
+    }
 
-    const demoTrip: TripRecord = {
-      id: 'trip-chicago-q3',
-      name: 'Q3 Client Summit & Onsite',
-      destination: 'Chicago, IL',
-      startDate: pastDate,
-      endDate: futureDate,
-      purpose: 'Annual Partner Review & Engineering Architecture Onsite',
-      clientOrEvent: 'Apex Corp Partner Day',
-      notes: 'Company policy: Meals capped at $75/day. Keep all receipts over $25.',
-      settings: {
-        defaultCurrency: 'USD',
-        defaultPaymentMethod: 'corporate_card',
-        mileageRatePerMile: 0.67,
-        perDiemRatePerDay: 75.0,
-      },
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-    };
-
-    const demoExpenses: ExpenseRecord[] = [
-      {
-        id: 'exp-demo-1',
-        tripId: demoTrip.id,
-        date: pastDate,
-        merchant: 'Hyatt Regency Chicago',
-        description: 'Hotel room for 2 nights (Tax & fees included)',
-        category: 'Lodging',
-        amount: 342.8,
-        currency: 'USD',
-        paymentMethod: 'corporate_card',
-        reimbursableAmount: 342.8,
-        personalAmount: 0,
-        reimbursementStatus: 'submitted',
-        notes: 'Reservation #HY-99201',
-        source: 'manual',
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-      },
-      {
-        id: 'exp-demo-2',
-        tripId: demoTrip.id,
-        date: pastDate,
-        merchant: 'O\'Hare International Airport',
-        description: 'Terminal 3 long-term parking (Day 1-2)',
-        category: 'Parking',
-        amount: 38.5,
-        currency: 'USD',
-        paymentMethod: 'corporate_card',
-        reimbursableAmount: 38.5,
-        personalAmount: 0,
-        reimbursementStatus: 'submitted',
-        source: 'manual',
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-      },
-      {
-        id: 'exp-demo-3',
-        tripId: demoTrip.id,
-        date: today,
-        merchant: 'Whataburger',
-        description: 'Lunch on travel day',
-        category: 'Meals',
-        amount: 14.63,
-        currency: 'USD',
-        paymentMethod: 'amex',
-        reimbursableAmount: 14.63,
-        personalAmount: 0,
-        reimbursementStatus: 'pending',
-        notes: 'Combo #2 with iced tea',
-        source: 'ai_chat',
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-      },
-      {
-        id: 'exp-demo-4',
-        tripId: demoTrip.id,
-        date: today,
-        merchant: 'The Capital Grille',
-        description: 'Team dinner with client team (Partial personal split)',
-        category: 'Meals',
-        amount: 148.5,
-        currency: 'USD',
-        paymentMethod: 'personal_card',
-        reimbursableAmount: 112.5,
-        personalAmount: 36.0,
-        reimbursementStatus: 'pending',
-        notes: 'Alcoholic drinks ($36.00) kept as personal expense per company handbook.',
-        source: 'manual',
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-      },
-      {
-        id: 'exp-demo-5',
-        tripId: demoTrip.id,
-        date: today,
-        merchant: 'Fuel Calculation',
-        description: 'Fuel for 575 miles (16.4 gal @ $2.79/gal)',
-        category: 'Fuel',
-        amount: 45.84,
-        currency: 'USD',
-        paymentMethod: 'personal_card',
-        reimbursableAmount: 45.84,
-        personalAmount: 0,
-        reimbursementStatus: 'pending',
-        source: 'calculated',
-        calculation: {
-          formulaId: 'fuel_mpg',
-          formulaLabel: 'Fuel Consumption (Miles / MPG × Price)',
-          parameters: {
-            miles: 575,
-            mpg: 35,
-            pricePerGallon: 2.79,
-            gallonsUsed: 16.43,
-          },
-          summary: '575 mi @ 35 mpg (~16.4 gal) × $2.79/gal',
-        },
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-      },
-    ];
-
-    await this.saveTrip(demoTrip);
-    await this.saveExpenses(demoExpenses);
-
-    return { trip: demoTrip, expenses: demoExpenses };
+    const db = await this.getDb();
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction(STORES.EXPENSES, 'readwrite');
+      const store = tx.objectStore(STORES.EXPENSES);
+      for (const expenseId of LEGACY_DEMO_EXPENSE_IDS) {
+        store.delete(expenseId);
+      }
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => reject(tx.error);
+    });
   }
 }
 

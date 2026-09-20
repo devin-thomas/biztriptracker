@@ -23,7 +23,7 @@ interface ExportModalProps {
   expenses: ExpenseRecord[];
   allTrips: TripRecord[];
   onImportSuccess: () => Promise<void>;
-  onClearDemoData: () => Promise<void>;
+  onClearAllData: () => Promise<void>;
   currentUser: User | null;
   onUserChanged: (user: User | null) => void;
 }
@@ -35,7 +35,7 @@ export const ExportModal: React.FC<ExportModalProps> = ({
   expenses,
   allTrips,
   onImportSuccess,
-  onClearDemoData,
+  onClearAllData,
   currentUser,
   onUserChanged,
 }) => {
@@ -313,15 +313,15 @@ export const ExportModal: React.FC<ExportModalProps> = ({
             <button
               type="button"
               onClick={async () => {
-                if (window.confirm('Clear all demo data and local storage?')) {
-                  await onClearDemoData();
+                if (window.confirm('Clear all trips, expenses, and local categories from this browser?')) {
+                  await onClearAllData();
                   onClose();
                 }
               }}
               className="text-rose-500 hover:underline flex items-center gap-1 cursor-pointer"
             >
               <Trash2 className="w-3 h-3" />
-              <span>Clear demo data</span>
+              <span>Clear all local data</span>
             </button>
           </div>
         </div>

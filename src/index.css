@@ -53,6 +53,10 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-
 .loading-state { min-height: 48vh; display: grid; place-content: center; color: var(--muted); font-size: 14px; }
 .loading-dots { color: var(--accent); margin-left: 3px; }
 .trip-list, .choice-list, .control-list { display: grid; gap: 12px; }
+.empty-state { display: grid; justify-items: start; gap: 7px; padding: 22px 0 8px; color: var(--muted); }
+.empty-state svg { color: var(--accent); }
+.empty-state strong { color: var(--text); font-size: 15px; font-weight: 620; }
+.empty-state span { font-size: 12px; }
 .selection-tile, .control-row { width: 100%; display: flex; align-items: center; gap: 14px; text-align: left; border: 1px solid var(--line); border-radius: 9px; background: color-mix(in srgb, var(--surface) 72%, transparent); transition: border-color .18s, background .18s, transform .18s; }
 .selection-tile:hover, .control-row:hover { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 5%, var(--surface)); transform: translateY(-1px); }
 .trip-tile { padding: 18px 17px; }

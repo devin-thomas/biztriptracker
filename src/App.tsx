@@ -55,11 +55,8 @@ export default function App() {
   const loadInitialData = async () => {
     setIsLoading(true);
     try {
-      let allTrips = await expenseStorage.getAllTrips();
-      if (allTrips.length === 0) {
-        const seeded = await expenseStorage.seedDemoData();
-        allTrips = [seeded.trip];
-      }
+      await expenseStorage.removeLegacyDemoData();
+      const allTrips = await expenseStorage.getAllTrips();
       setTrips(allTrips);
       setActiveTrip(null);
       setExpenses([]);
@@ -161,7 +158,7 @@ export default function App() {
   };
 
   const handleClearDemoData = async () => {
-    await expenseStorage.clearDemoData();
+    await expenseStorage.clearAllData();
     setTrips([]);
     setActiveTrip(null);
     setExpenses([]);
@@ -180,6 +177,7 @@ export default function App() {
     if (isLoading) return <div className="loading-state">Loading your trips<span className="loading-dots">...</span></div>;
     if (view === 'tripChooser') return <section className="flow-screen chooser-screen" aria-labelledby="chooser-title">
       <div className="step-heading"><span>01</span><div><h1 id="chooser-title">Choose a trip</h1><p>Start with the project you are working on today.</p></div></div>
+      {trips.length === 0 && <div className="empty-state"><BriefcaseBusiness size={22} /><strong>No trips yet</strong><span>Create your first trip to start recording expenses.</span></div>}
       <div className="trip-list" role="list" aria-label="Available trips">
         {trips.map((trip) => <button key={trip.id} type="button" className="selection-tile trip-tile" onClick={() => void handleSelectTrip(trip.id)}><span className="tile-icon"><BriefcaseBusiness size={20} /></span><span className="tile-copy"><strong>{trip.name}</strong><small><MapPin size={13} />{trip.destination}</small><small><CalendarDays size={13} />{trip.startDate} to {trip.endDate}</small></span><ChevronRight className="tile-arrow" size={18} /></button>)}
       </div>
@@ -202,7 +200,7 @@ export default function App() {
     return null;
   };
 
-  return <div className="app-shell"><header className="brand-header"><div className="brand-lockup"><span className="brand-icon"><BriefcaseBusiness size={18} /></span><span>Trip Expense Tracker</span></div><span className="save-state">LOCAL WORKSPACE</span></header><main className="app-main"><div className="workflow-frame"><AnimatePresence mode="wait" custom={direction}><motion.div key={view} custom={direction} initial={{ opacity: 0, x: direction * 24 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: direction * -18 }} transition={{ duration: 0.24, ease: [0.22, 0.8, 0.3, 1] }}>{renderView()}</motion.div></AnimatePresence></div></main>{activeTrip && <ExpenseModal isOpen={isExpenseModalOpen} onClose={() => { setIsExpenseModalOpen(false); setEditingExpense(null); navigate(manualReturnView, -1); }} onSave={handleSaveExpenseRecord} tripId={activeTrip.id} categories={customCategories} initialExpense={editingExpense} defaultCurrency={activeTrip.settings.defaultCurrency || 'USD'} />}<TripModal isOpen={isTripModalOpen} onClose={() => { setIsTripModalOpen(false); setEditingTrip(null); }} onSave={handleSaveTrip} initialTrip={editingTrip} />{activeTrip && <ExportModal isOpen={isExportModalOpen} onClose={() => setIsExportModalOpen(false)} trip={activeTrip} expenses={expenses} allTrips={trips} onImportSuccess={loadInitialData} onClearDemoData={handleClearDemoData} currentUser={currentUser} onUserChanged={setCurrentUser} />}<ReceiptViewerModal expense={viewingReceiptExpense} onClose={() => setViewingReceiptExpense(null)} /></div>;
+  return <div className="app-shell"><header className="brand-header"><div className="brand-lockup"><span className="brand-icon"><BriefcaseBusiness size={18} /></span><span>Trip Expense Tracker</span></div><span className="save-state">LOCAL WORKSPACE</span></header><main className="app-main"><div className="workflow-frame"><AnimatePresence mode="wait" custom={direction}><motion.div key={view} custom={direction} initial={{ opacity: 0, x: direction * 24 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: direction * -18 }} transition={{ duration: 0.24, ease: [0.22, 0.8, 0.3, 1] }}>{renderView()}</motion.div></AnimatePresence></div></main>{activeTrip && <ExpenseModal isOpen={isExpenseModalOpen} onClose={() => { setIsExpenseModalOpen(false); setEditingExpense(null); navigate(manualReturnView, -1); }} onSave={handleSaveExpenseRecord} tripId={activeTrip.id} categories={customCategories} initialExpense={editingExpense} defaultCurrency={activeTrip.settings.defaultCurrency || 'USD'} />}<TripModal isOpen={isTripModalOpen} onClose={() => { setIsTripModalOpen(false); setEditingTrip(null); }} onSave={handleSaveTrip} initialTrip={editingTrip} />{activeTrip && <ExportModal isOpen={isExportModalOpen} onClose={() => setIsExportModalOpen(false)} trip={activeTrip} expenses={expenses} allTrips={trips} onImportSuccess={loadInitialData} onClearAllData={handleClearDemoData} currentUser={currentUser} onUserChanged={setCurrentUser} />}<ReceiptViewerModal expense={viewingReceiptExpense} onClose={() => setViewingReceiptExpense(null)} /></div>;
 }
 
 function FlowBackButton({ label, onClick }: { label: string; onClick: () => void }) {

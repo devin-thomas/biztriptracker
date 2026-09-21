@@ -7,7 +7,7 @@ import {
   MoreHorizontal, Plus, Settings2, SlidersHorizontal,
 } from 'lucide-react';
 import { TripRecord, ExpenseRecord, DEFAULT_CATEGORIES } from './types/expense.js';
-import { expenseStorage } from './storage/IndexedDbExpenseStorage.js';
+import { expenseStorage } from './storage/NeonExpenseStorage.js';
 import { computeTripTotals } from './storage/IExpenseStorage.js';
 import { geminiExpenseParser } from './ai/GeminiExpenseParser.js';
 import { ParseExpenseResponse, ExpenseDraftItem } from './ai/expensePrompt.js';

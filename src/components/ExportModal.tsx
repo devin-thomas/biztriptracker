@@ -117,7 +117,7 @@ export const ExportModal: React.FC<ExportModalProps> = ({
           return;
         }
 
-        const { expenseStorage } = await import('../storage/IndexedDbExpenseStorage.js');
+        const { expenseStorage } = await import('../storage/NeonExpenseStorage.js');
         if (validation.trip && validation.expenses) {
           await expenseStorage.saveTrip(validation.trip);
           await expenseStorage.saveExpenses(validation.expenses);

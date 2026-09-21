@@ -36,6 +36,29 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-
   background-size: 32px 32px, 32px 32px, auto;
 }
 .brand-header { height: 76px; padding: 0 30px; border-bottom: 1px solid var(--line); background: color-mix(in srgb, var(--bg) 91%, transparent); backdrop-filter: blur(18px); display: flex; align-items: center; justify-content: space-between; position: relative; z-index: 10; }
+.auth-shell { min-height: 100vh; background: var(--bg); color: var(--text); }
+.auth-main { min-height: calc(100vh - 76px); display: grid; place-items: center; padding: 32px 20px 64px; }
+.auth-card { width: min(100%, 430px); padding: 34px; border: 1px solid var(--line); border-radius: 12px; background: color-mix(in srgb, var(--surface) 82%, transparent); box-shadow: 0 22px 70px rgba(0,0,0,.22); }
+.auth-icon { width: 44px; height: 44px; display: grid; place-items: center; border-radius: 10px; color: var(--accent); background: color-mix(in srgb, var(--accent) 12%, var(--surface)); margin-bottom: 22px; }
+.success-auth-icon { color: var(--success); background: color-mix(in srgb, var(--success) 12%, var(--surface)); }
+.auth-card h1 { margin: 10px 0 10px; font-size: clamp(30px, 5vw, 42px); line-height: 1.03; letter-spacing: -.05em; }
+.auth-card p { color: var(--muted); font-size: 13px; line-height: 1.55; }
+.auth-card p strong { color: var(--text); font-weight: 620; }
+.auth-form { display: grid; gap: 9px; margin-top: 26px; }
+.auth-form label { color: var(--text); font-size: 12px; font-weight: 620; }
+.auth-form input { min-height: 46px; padding: 0 13px; border: 1px solid var(--line-strong); border-radius: 7px; background: var(--surface-soft); color: var(--text); outline: none; }
+.auth-form input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 16%, transparent); }
+.auth-submit { width: 100%; margin-top: 9px; min-height: 48px; }
+.auth-actions { display: grid; gap: 9px; margin-top: 23px; }
+.auth-secondary-action { margin-top: 23px; padding: 0 15px; min-height: 42px; }
+.auth-actions .auth-secondary-action { margin-top: 0; }
+.auth-error { margin-top: 15px; color: #fb8d8d !important; }
+.auth-message { text-align: center; }
+.auth-message .auth-icon { margin-left: auto; margin-right: auto; }
+.account-button { position: fixed; right: 20px; bottom: 18px; z-index: 30; max-width: calc(100vw - 40px); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; padding: 9px 12px; border: 1px solid var(--line-strong); border-radius: 999px; background: color-mix(in srgb, var(--surface) 92%, transparent); color: var(--muted); font-size: 11px; box-shadow: 0 10px 30px rgba(0,0,0,.22); }
+.account-button:hover { color: var(--text); border-color: var(--accent); }
+.spin { animation: auth-spin .8s linear infinite; }
+@keyframes auth-spin { to { transform: rotate(360deg); } }
 .brand-lockup { display: flex; align-items: center; gap: 10px; font-size: 21px; font-weight: 620; letter-spacing: -0.035em; }
 .brand-icon { width: 34px; height: 34px; border: 1px solid var(--accent); border-radius: 8px; display: grid; place-items: center; color: var(--accent); }
 .save-state { color: var(--muted); font: 500 10px "IBM Plex Mono", monospace; letter-spacing: .08em; }
@@ -125,6 +148,9 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-
   .choice-tile { min-height: 104px; }
   .review-screen .grid-cols-2 { grid-template-columns: 1fr !important; }
   #expense-modal-dialog { width: 100% !important; max-height: calc(100vh - 16px); border-radius: 8px !important; }
+  .auth-main { min-height: calc(100vh - 64px); padding: 22px 17px 42px; }
+  .auth-card { padding: 27px 22px; }
+  .account-button { right: 12px; bottom: 12px; max-width: calc(100vw - 24px); }
 }
 
 @media (prefers-reduced-motion: reduce) {

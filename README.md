@@ -24,6 +24,8 @@ Google Sheets integration. They are browser configuration, not a place to store 
 Gemini or OAuth secret. The Google Cloud/Firebase API key should be restricted to
 the required APIs and the local/deployed hostnames.
 
+Set `VITE_NEON_AUTH_URL` and `VITE_NEON_DATA_API_URL` after enabling Neon Auth and the Neon Data API. Run `db/neon.sql` in the Neon SQL editor, enable passwordless magic links, configure email delivery, and add local, preview, and production domains to Neon Auth trusted domains. Existing IndexedDB data is intentionally not imported into the account workspace.
+
 ### 3. Install & Run
 ```bash
 # Install dependencies
@@ -50,6 +52,8 @@ Vercel with production and preview scopes before deploying:
 npx vercel link
 npx vercel env add GEMINI_API_KEY production
 npx vercel env add VITE_FIREBASE_API_KEY production
+npx vercel env add VITE_NEON_AUTH_URL production
+npx vercel env add VITE_NEON_DATA_API_URL production
 npx vercel deploy --prod
 ```
 
